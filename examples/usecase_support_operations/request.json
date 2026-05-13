@@ -1,0 +1,9 @@
+{
+  "package_name": "usecase-support-operations",
+  "decision": "ticket",
+  "context": {
+    "customer": {"plan": "enterprise", "language": "en"},
+    "ticket": {"severity": "critical", "topic": "billing", "sentiment": -0.6, "sla_minutes": 25}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

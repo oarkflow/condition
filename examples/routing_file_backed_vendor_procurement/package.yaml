@@ -1,0 +1,47 @@
+name: usecase-hr-procurement-legal
+version: "1"
+environment: demo
+datasets:
+  - name: vendor-review-queues
+    records:
+      - id: preferred-vendor
+        name: Preferred Vendor
+        facts: {active: true, categories: [software, cloud], regions: [US, GB], priority: 9, compliance: 0.98, cost_index: 0.70, fallback_order: 1}
+      - id: legal-review
+        name: Legal Review
+        facts: {active: true, categories: [software, services], regions: [US, EU, GB], priority: 8, compliance: 0.95, cost_index: 0.85, fallback_order: 2}
+      - id: finance-review
+        name: Finance Review
+        facts: {active: true, categories: [software, hardware, services], regions: [US, EU, GB], priority: 6, compliance: 0.90, cost_index: 0.60, fallback_order: 3}
+policies:
+  - name: purchase-request
+    default_effect: allow
+    rules:
+      - {id: budget-unavailable, effect: deny, condition: 'budget.available < request.amount', reason: budget is unavailable}
+      - {id: vendor-risk, effect: require_review, condition: 'vendor.risk_score >= 60', reason: vendor risk requires review}
+      - {id: large-contract, effect: escalate, condition: 'request.amount > 250000', reason: large contract requires executive approval}
+rankings:
+  - name: vendor-review
+    decision: purchase-request
+    dataset: vendor-review-queues
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.compliance
+    fallback_path: provider.fallback_order
+    cost_path: provider.cost_index
+    rule_set:
+      name: vendor-review
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: category, condition: 'request.category in provider.categories'}
+        - {id: region, condition: 'request.region in provider.regions'}
+      score_rules:
+        - {id: compliance, metric: provider.compliance, weight: 0.45, normalize: {min: 0.7, max: 1}}
+        - {id: priority, metric: provider.priority, weight: 0.30, normalize: {min: 1, max: 10}}
+        - {id: cost, metric: provider.cost_index, weight: 0.25, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: vendor-review-routing
+    decision: purchase-request
+    ranking: vendor-review
+    selection: best
+    goal: route purchase requests to the best approval path for risk, cost, and compliance

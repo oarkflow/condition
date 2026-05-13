@@ -1,0 +1,56 @@
+{
+  "package_name": "fraud-intelligence",
+  "decision": "fraud-review",
+  "context": {
+    "customer": {
+      "id": "cus_123",
+      "blacklisted": false,
+      "country": "NP",
+      "tier": "standard"
+    },
+    "transaction": {
+      "id": "txn_789",
+      "amount": 125000,
+      "velocity_10m": 7
+    },
+    "device": {
+      "is_new": true,
+      "trusted": false
+    }
+  },
+  "candidates": [
+    {
+      "id": "standard",
+      "name": "Standard Review",
+      "facts": {
+        "active": true,
+        "skills": ["payments"],
+        "priority": 5,
+        "load": 0.4,
+        "sla": 30
+      }
+    },
+    {
+      "id": "aml",
+      "name": "AML Review",
+      "facts": {
+        "active": true,
+        "skills": ["payments", "aml"],
+        "priority": 9,
+        "load": 0.2,
+        "sla": 10
+      }
+    },
+    {
+      "id": "overflow",
+      "name": "Overflow Review",
+      "facts": {
+        "active": false,
+        "skills": ["payments"],
+        "priority": 10,
+        "load": 0.1,
+        "sla": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: production-decision-server-secret
+type: Opaque
+stringData:
+  DECISION_ADMIN_TOKEN: change-me
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: production-decision-server-authz
+data:
+  production.authz: |
+    tenant default "Default Tenant"
+
+    policy manager-publish default allow package:publish * subject.roles@manager priority:100
+    policy manager-list default allow package:list * subject.roles@manager priority:100
+    policy manager-read default allow package:read * subject.roles@manager priority:100
+    policy manager-evaluate default allow decision:evaluate * subject.roles@manager priority:100
+    policy manager-simulate default allow package:simulate * subject.roles@manager priority:100
+    policy manager-compare default allow package:compare * subject.roles@manager priority:100
+    policy manager-test default allow package:test * subject.roles@manager priority:100
+    policy manager-audit default allow audit:read * subject.roles@manager priority:100
+    policy evaluator-route default allow decision:evaluate * subject.roles@evaluator priority:80
+    policy auditor-read default allow audit:read * subject.roles@auditor priority:80
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: production-decision-server-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: production-decision-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: production-decision-server
+  template:
+    metadata:
+      labels:
+        app: production-decision-server
+    spec:
+      containers:
+        - name: server
+          image: production-decision-server:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ADDR
+              value: ":8080"
+            - name: DECISION_SQLITE_PATH
+              value: /data/decisions.db
+            - name: DECISION_AUTHZ_FILE
+              value: /config/production.authz
+          envFrom:
+            - secretRef:
+                name: production-decision-server-secret
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: authz
+              mountPath: /config
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: production-decision-server-data
+        - name: authz
+          configMap:
+            name: production-decision-server-authz
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: production-decision-server
+spec:
+  selector:
+    app: production-decision-server
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

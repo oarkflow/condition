@@ -1,0 +1,215 @@
+{
+  "name": "sms-routes",
+  "records": [
+    {
+      "id": "r-user-otp-np-ncell",
+      "name": "Sparrow SMS",
+      "facts": {
+        "route": {
+          "status": "active",
+          "user_id": 15,
+          "tenant_id": 1001,
+          "message_category": "otp",
+          "message_type": "sms",
+          "delivery_quality": "critical",
+          "recipient_country": "NP",
+          "carrier_code": "NCELL",
+          "min_message_count": 1,
+          "max_message_count": 1000,
+          "message_pattern": "OTP",
+          "sender_id": "ACME",
+          "priority": 100,
+          "specificity": 50,
+          "fallback_order": 1,
+          "weight": 70
+        },
+        "provider": {
+          "id": 1,
+          "code": "sparrow",
+          "status": "active"
+        },
+        "quality": {
+          "success_rate": 0.991,
+          "avg_delivery_seconds": 2,
+          "failure_rate": 0.004,
+          "cost_per_sms": 0.010
+        }
+      }
+    },
+    {
+      "id": "r-user-otp-np",
+      "name": "Provider B",
+      "facts": {
+        "route": {
+          "status": "active",
+          "user_id": 15,
+          "tenant_id": 1001,
+          "message_category": "otp",
+          "message_type": "sms",
+          "delivery_quality": "critical",
+          "recipient_country": "NP",
+          "carrier_code": null,
+          "min_message_count": 1,
+          "max_message_count": 2000,
+          "message_pattern": null,
+          "sender_id": "ACME",
+          "priority": 95,
+          "specificity": 45,
+          "fallback_order": 2,
+          "weight": 30
+        },
+        "provider": {
+          "id": 2,
+          "code": "provider_b",
+          "status": "active"
+        },
+        "quality": {
+          "success_rate": 0.985,
+          "avg_delivery_seconds": 3,
+          "failure_rate": 0.006,
+          "cost_per_sms": 0.008
+        }
+      }
+    },
+    {
+      "id": "r-global-otp-np",
+      "name": "Global OTP Provider",
+      "facts": {
+        "route": {
+          "status": "active",
+          "user_id": null,
+          "tenant_id": null,
+          "message_category": "otp",
+          "message_type": "sms",
+          "delivery_quality": null,
+          "recipient_country": "NP",
+          "carrier_code": null,
+          "min_message_count": 1,
+          "max_message_count": 5000,
+          "message_pattern": null,
+          "sender_id": null,
+          "priority": 70,
+          "specificity": 22,
+          "fallback_order": 4,
+          "weight": 10
+        },
+        "provider": {
+          "id": 4,
+          "code": "global_otp",
+          "status": "active"
+        },
+        "quality": {
+          "success_rate": 0.982,
+          "avg_delivery_seconds": 4,
+          "failure_rate": 0.008,
+          "cost_per_sms": 0.006
+        }
+      }
+    },
+    {
+      "id": "r-global-default",
+      "name": "Global Default Provider",
+      "facts": {
+        "route": {
+          "status": "active",
+          "user_id": null,
+          "tenant_id": null,
+          "message_category": null,
+          "message_type": null,
+          "delivery_quality": null,
+          "recipient_country": null,
+          "carrier_code": null,
+          "min_message_count": null,
+          "max_message_count": null,
+          "message_pattern": null,
+          "sender_id": null,
+          "priority": 10,
+          "specificity": 1,
+          "fallback_order": 99,
+          "weight": 1
+        },
+        "provider": {
+          "id": 5,
+          "code": "global_default",
+          "status": "active"
+        },
+        "quality": {
+          "success_rate": 0.940,
+          "avg_delivery_seconds": 9,
+          "failure_rate": 0.030,
+          "cost_per_sms": 0.004
+        }
+      }
+    },
+    {
+      "id": "r-inactive-provider",
+      "name": "Inactive Provider",
+      "facts": {
+        "route": {
+          "status": "active",
+          "user_id": 15,
+          "tenant_id": null,
+          "message_category": "otp",
+          "message_type": "sms",
+          "delivery_quality": "critical",
+          "recipient_country": "NP",
+          "carrier_code": "NCELL",
+          "min_message_count": 1,
+          "max_message_count": 1000,
+          "message_pattern": "OTP",
+          "sender_id": "ACME",
+          "priority": 999,
+          "specificity": 50,
+          "fallback_order": 1,
+          "weight": 1
+        },
+        "provider": {
+          "id": 6,
+          "code": "inactive",
+          "status": "paused"
+        },
+        "quality": {
+          "success_rate": 1.000,
+          "avg_delivery_seconds": 1,
+          "failure_rate": 0,
+          "cost_per_sms": 0.001
+        }
+      }
+    },
+    {
+      "id": "r-too-small",
+      "name": "Small Batch Provider",
+      "facts": {
+        "route": {
+          "status": "active",
+          "user_id": 15,
+          "tenant_id": null,
+          "message_category": "otp",
+          "message_type": "sms",
+          "delivery_quality": "critical",
+          "recipient_country": "NP",
+          "carrier_code": "NCELL",
+          "min_message_count": 1,
+          "max_message_count": 100,
+          "message_pattern": "OTP",
+          "sender_id": "ACME",
+          "priority": 1000,
+          "specificity": 50,
+          "fallback_order": 1,
+          "weight": 1
+        },
+        "provider": {
+          "id": 7,
+          "code": "small_batch",
+          "status": "active"
+        },
+        "quality": {
+          "success_rate": 1.000,
+          "avg_delivery_seconds": 1,
+          "failure_rate": 0,
+          "cost_per_sms": 0.001
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+name: usecase-support-operations
+version: "1"
+environment: demo
+datasets:
+  - name: support-queues
+    records:
+      - id: enterprise-billing
+        name: Enterprise Billing
+        facts: {active: true, customer_tiers: [enterprise], skills: [billing, payments], languages: [en, es], priority: 9, availability: 0.92, queue_depth: 12, fallback_order: 1}
+      - id: urgent-swat
+        name: Urgent SWAT
+        facts: {active: true, customer_tiers: [enterprise], skills: [incident, urgent, billing], languages: [en], priority: 8, availability: 0.70, queue_depth: 8, fallback_order: 2}
+      - id: general-billing
+        name: General Billing
+        facts: {active: true, customer_tiers: [free, business, enterprise], skills: [billing], languages: [en], priority: 5, availability: 0.84, queue_depth: 25, fallback_order: 3}
+policies:
+  - name: ticket
+    default_effect: allow
+    rules:
+      - {id: negative-sentiment, effect: require_review, condition: 'ticket.sentiment < -0.5', reason: customer sentiment is poor}
+      - {id: sla-near-breach, effect: escalate, condition: 'ticket.sla_minutes <= 30', reason: ticket is near SLA breach}
+rule_sets:
+  - name: ticket
+    rules:
+      - {id: critical-enterprise, condition: 'ticket.severity == "critical" and customer.plan == "enterprise"', decision: escalate, score: 80, reason: critical enterprise ticket}
+rankings:
+  - name: support-queue
+    decision: ticket
+    dataset: support-queues
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.availability
+    fallback_path: provider.fallback_order
+    cost_path: provider.queue_depth
+    rule_set:
+      name: support-queue
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: tier, condition: 'customer.plan in provider.customer_tiers'}
+        - {id: skill, condition: 'ticket.topic in provider.skills'}
+        - {id: language, condition: 'customer.language in provider.languages'}
+      score_rules:
+        - {id: availability, metric: provider.availability, weight: 0.45, normalize: {min: 0.5, max: 1}}
+        - {id: queue-depth, metric: provider.queue_depth, weight: 0.35, direction: lower_better, normalize: {min: 0, max: 50}}
+        - {id: priority, metric: provider.priority, weight: 0.20, normalize: {min: 1, max: 10}}
+optimizations:
+  - name: support-routing
+    decision: ticket
+    ranking: support-queue
+    selection: best
+    goal: route tickets to the best qualified queue before SLA breach

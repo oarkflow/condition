@@ -1,0 +1,48 @@
+name: usecase-healthcare-administration
+version: "2026.05"
+environment: demo
+datasets:
+  - name: admin-review-queues
+    records:
+      - id: payer-authorization
+        name: Payer Authorization
+        facts: {active: true, payers: [acme-health], skills: [prior_auth, documentation], priority: 9, turnaround_hours: 12, load: 0.52, fallback_order: 1}
+      - id: claims-specialist
+        name: Claims Specialist
+        facts: {active: true, payers: [acme-health, northstar], skills: [claims, exceptions], priority: 7, turnaround_hours: 18, load: 0.44, fallback_order: 2}
+      - id: privacy-review
+        name: Privacy Review
+        facts: {active: true, payers: [acme-health, northstar], skills: [privacy, documentation], priority: 8, turnaround_hours: 24, load: 0.36, fallback_order: 3}
+policies:
+  - name: prior-auth
+    default_effect: allow
+    rules:
+      - {id: missing-documentation, effect: require_review, condition: 'request.documentation_complete == false', reason: administrative documentation is incomplete}
+      - {id: coverage-check, effect: require_review, condition: 'coverage.active == false', reason: coverage status requires administrative review}
+      - {id: privacy-sensitive, effect: escalate, condition: 'request.privacy_sensitive == true', reason: privacy-sensitive workflow requires specialized review}
+rankings:
+  - name: admin-queue
+    decision: prior-auth
+    dataset: admin-review-queues
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.turnaround_hours
+    fallback_path: provider.fallback_order
+    cost_path: provider.load
+    rule_set:
+      name: admin-queue
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: payer, condition: 'request.payer in provider.payers'}
+        - {id: documentation, condition: 'request.documentation_complete == true or "documentation" in provider.skills'}
+        - {id: privacy, condition: 'request.privacy_sensitive == false or "privacy" in provider.skills'}
+      score_rules:
+        - {id: turnaround, metric: provider.turnaround_hours, weight: 0.35, direction: lower_better, normalize: {min: 4, max: 72}}
+        - {id: priority, metric: provider.priority, weight: 0.35, normalize: {min: 1, max: 10}}
+        - {id: load, metric: provider.load, weight: 0.30, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: admin-routing
+    decision: prior-auth
+    ranking: admin-queue
+    selection: best
+    goal: route administrative prior-authorization work without making clinical recommendations

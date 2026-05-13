@@ -1,0 +1,10 @@
+{
+  "package_name": "usecase-government-public-sector",
+  "decision": "permit",
+  "context": {
+    "applicant": {"age": 38},
+    "property": {"zone": "R2", "requires_variance": true},
+    "documents": {"complete": true}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

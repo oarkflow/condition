@@ -1,0 +1,10 @@
+{
+  "package_name": "usecase-ecommerce-marketplaces",
+  "decision": "checkout",
+  "context": {
+    "customer": {"abuse_flag": false},
+    "order": {"risk_score": 45, "value": 1200},
+    "shipment": {"country": "US", "fragile": true, "max_delivery_days": 3}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

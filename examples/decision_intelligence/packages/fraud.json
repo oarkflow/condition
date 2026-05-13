@@ -1,0 +1,55 @@
+{
+  "name": "fraud-intelligence",
+  "version": "1",
+  "environment": "production",
+  "schemas": {
+    "fraud-review": {
+      "required": ["customer.blacklisted", "transaction.amount", "device.is_new"],
+      "types": {
+        "transaction.amount": "number",
+        "device.is_new": "bool"
+      }
+    }
+  },
+  "policies": [
+    {
+      "name": "fraud-review",
+      "default_effect": "allow",
+      "rules": [
+        {"id": "deny-blacklisted", "effect": "deny", "condition": "customer.blacklisted == true", "reason": "customer is blacklisted"},
+        {"id": "review-high-risk-market", "effect": "require_review", "condition": "customer.country == \"NP\"", "reason": "manual review market"}
+      ]
+    }
+  ],
+  "rule_sets": [
+    {
+      "name": "fraud-review",
+      "rules": [
+        {"id": "1001", "condition": "transaction.amount > 100000", "score": 40, "decision": "require_review", "reason": "high value transaction", "actions": [{"type": "notify", "payload": {"team": "compliance"}}]},
+        {"id": "1002", "condition": "transaction.velocity_10m > 5", "score": 30, "reason": "velocity threshold exceeded"},
+        {"id": "1003", "condition": "device.is_new == true", "score": 15, "reason": "new device"}
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "fraud-review-workflow",
+      "start_stage": "intake",
+      "stages": [
+        {"name": "intake", "rules": [{"id": "2001", "condition": "transaction.amount > 100000", "decision": "escalate", "reason": "high value case escalated to senior reviewer"}]}
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "name": "blacklisted customers are denied",
+      "decision": "fraud-review",
+      "context": {
+        "customer": {"blacklisted": true, "country": "NP"},
+        "transaction": {"amount": 1000},
+        "device": {"is_new": false}
+      },
+      "expect": {"effect": "deny"}
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "package_name": "usecase-insurance",
+  "decision": "claim",
+  "context": {
+    "policy": {"active": true},
+    "claimant": {"prior_claims_12m": 3},
+    "claim": {"line": "auto", "fraud_score": 72, "reserve_amount": 80000}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

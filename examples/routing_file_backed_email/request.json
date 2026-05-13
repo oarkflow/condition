@@ -1,0 +1,12 @@
+{
+  "package_name": "routing-file-backed-email",
+  "decision": "email-route",
+  "context": {
+    "tenant": {"id": "acme", "plan": "enterprise"},
+    "message": {"type": "transactional", "category": "receipt", "priority": "high"},
+    "recipient": {"email": "buyer@example.com", "domain": "example.com", "region": "us-east", "suppressed": false},
+    "campaign": {"complaint_rate": 0.002, "bounce_rate": 0.006}
+  },
+  "variables": {"maxComplaintRate": 0.005, "maxLatencyMS": 900},
+  "options": {"explain": true, "include_failed": true}
+}

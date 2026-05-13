@@ -1,0 +1,10 @@
+{
+  "package_name": "usecase-saas-product-platforms",
+  "decision": "feature-access",
+  "context": {
+    "account": {"id": "acct_42", "status": "active", "plan": "business", "region": "US"},
+    "lists": {"allow_accounts": ["acct_42"]},
+    "feature": {"rollout_percent": 25}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

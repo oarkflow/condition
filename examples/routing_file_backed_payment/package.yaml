@@ -1,0 +1,60 @@
+name: routing-file-backed-payment
+version: "1"
+environment: demo
+datasets:
+  - name: payment-processors
+    records:
+      - id: stripe-primary
+        name: Stripe
+        facts: {active: true, currencies: [USD, EUR], countries: [US, CA], card_brands: [visa, mastercard, amex], supports_3ds: false, approval_rate: 0.982, fee_bps: 210, settlement_days: 1, capacity: 96, priority: 5, specificity: 8, fallback_order: 1, weight: 70}
+      - id: adyen-us
+        name: Adyen US
+        facts: {active: true, currencies: [USD], countries: [US], card_brands: [visa, mastercard], supports_3ds: false, approval_rate: 0.976, fee_bps: 180, settlement_days: 2, capacity: 92, priority: 4, specificity: 4, fallback_order: 2, weight: 20}
+      - id: worldpay-3ds
+        name: Worldpay 3DS
+        facts: {active: true, currencies: [USD, GBP], countries: [US, GB], card_brands: [visa, mastercard], supports_3ds: true, approval_rate: 0.965, fee_bps: 260, settlement_days: 1, capacity: 88, priority: 3, specificity: 6, fallback_order: 3, weight: 10}
+      - id: offline-backup
+        name: Offline Backup
+        facts: {active: false, currencies: [USD], countries: [US], card_brands: [visa], supports_3ds: false, approval_rate: 0.990, fee_bps: 150, settlement_days: 3, capacity: 99, priority: 9, specificity: 3, fallback_order: 1, weight: 10}
+policies:
+  - name: payment-route
+    default_effect: allow
+    rules:
+      - {id: risk-review, effect: require_review, condition: 'payment.risk_score > $maxRiskScore', reason: payment risk is above routing threshold}
+      - {id: high-value-3ds, effect: require_review, condition: 'payment.amount > 1000 and payment.requires_3ds == false', reason: high value payment may require additional authentication}
+rankings:
+  - name: payment-route
+    decision: payment-route
+    dataset: payment-processors
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.specificity
+    fallback_path: provider.fallback_order
+    cost_path: provider.fee_bps
+    weight_path: provider.weight
+    hash_key_path: customer.id
+    rule_set:
+      name: payment-route
+      rules:
+        - {id: active, condition: 'provider.active == true', reason: processor is disabled}
+        - {id: currency, condition: 'payment.currency in provider.currencies', reason: currency is unsupported}
+        - {id: country, condition: 'payment.country in provider.countries', reason: country is unsupported}
+        - {id: card-brand, condition: 'payment.card_brand in provider.card_brands', reason: card brand is unsupported}
+        - {id: risk, condition: 'payment.risk_score <= $maxRiskScore', reason: payment risk is too high}
+        - {id: fee-cap, condition: 'provider.fee_bps <= $maxFeeBps', reason: processor fee exceeds cap}
+        - id: three-ds
+          group:
+            mode: any
+            rules:
+              - {id: not-required, condition: 'payment.requires_3ds == false'}
+              - {id: provider-supports-3ds, condition: 'provider.supports_3ds == true'}
+      score_rules:
+        - {id: approval-rate, metric: provider.approval_rate, weight: 0.50, normalize: {min: 0.90, max: 1}}
+        - {id: fee, metric: provider.fee_bps, weight: 0.30, direction: lower_better, normalize: {min: 100, max: 320}}
+        - {id: settlement, metric: provider.settlement_days, weight: 0.20, direction: lower_better, normalize: {min: 1, max: 5}}
+optimizations:
+  - name: payment-route-optimization
+    decision: payment-route
+    ranking: payment-route
+    selection: best
+    goal: choose the best processor by approval rate fee settlement and policy eligibility

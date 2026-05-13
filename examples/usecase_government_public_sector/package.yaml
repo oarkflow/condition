@@ -1,0 +1,47 @@
+name: usecase-government-public-sector
+version: "2026.05"
+environment: demo
+datasets:
+  - name: permit-queues
+    records:
+      - id: residential-fast-track
+        name: Residential Fast Track
+        facts: {active: true, zones: [R1, R2], skills: [residential], priority: 9, review_days: 2, load: 0.40, fallback_order: 1}
+      - id: zoning-board
+        name: Zoning Board
+        facts: {active: true, zones: [R1, R2, C1], skills: [variance, zoning], priority: 8, review_days: 7, load: 0.55, fallback_order: 2}
+      - id: general-permits
+        name: General Permits
+        facts: {active: true, zones: [R1, R2, C1, I1], skills: [standard], priority: 5, review_days: 10, load: 0.30, fallback_order: 3}
+policies:
+  - name: permit
+    default_effect: deny
+    rules:
+      - {id: residential-low-risk, effect: allow, condition: 'applicant.age >= 18 and property.zone in ["R1", "R2"] and documents.complete == true', reason: meets residential permit criteria}
+      - {id: missing-documents, effect: require_review, condition: 'documents.complete == false', reason: missing required documents}
+      - {id: variance-needed, effect: escalate, condition: 'property.requires_variance == true', reason: variance requires board review}
+rankings:
+  - name: permit-queue
+    decision: permit
+    dataset: permit-queues
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.review_days
+    fallback_path: provider.fallback_order
+    cost_path: provider.load
+    rule_set:
+      name: permit-queue
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: zone, condition: 'property.zone in provider.zones'}
+        - {id: variance, condition: 'property.requires_variance == false or "variance" in provider.skills'}
+      score_rules:
+        - {id: priority, metric: provider.priority, weight: 0.45, normalize: {min: 1, max: 10}}
+        - {id: review-time, metric: provider.review_days, weight: 0.35, direction: lower_better, normalize: {min: 1, max: 14}}
+        - {id: load, metric: provider.load, weight: 0.20, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: permit-routing
+    decision: permit
+    ranking: permit-queue
+    selection: best
+    goal: route eligible permit applications to the fastest qualified public queue

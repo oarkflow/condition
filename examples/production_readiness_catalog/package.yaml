@@ -1,0 +1,125 @@
+name: prod-sms-provider-routing
+version: "2026.05.12"
+environment: prod
+metadata:
+  owner: messaging-platform
+  purpose: production readiness catalog for SMS provider routing
+datasets: []
+policies:
+  - name: sms-route
+    default_effect: allow
+    rules:
+      - id: blocked-country
+        effect: deny
+        condition: 'recipient.country in ["IR", "KP"]'
+        reason: recipient country is blocked for SMS delivery
+        stop_on_match: true
+      - id: recipient-opt-in
+        effect: deny
+        condition: 'recipient.opted_in == false'
+        reason: recipient has not opted in
+        stop_on_match: true
+      - id: account-limit-review
+        effect: require_review
+        condition: 'account.daily_remaining < message.count or message.quality == "critical" and message.count > 1000'
+        reason: high-volume or over-limit SMS traffic requires operational review
+rankings:
+  - name: sms-route
+    decision: sms-route
+    dataset: sms-routes
+    selection: best
+    priority_path: route.priority
+    specificity_path: route.specificity
+    fallback_path: route.fallback_order
+    cost_path: quality.cost_per_sms
+    weight_path: route.weight
+    hash_key_path: recipient.number
+    rule_set:
+      name: sms-provider-route-table
+      rules:
+        - id: route-active
+          condition: 'active(route.status)'
+          reason: route is not active
+        - id: provider-active
+          condition: 'active(provider.status)'
+          reason: provider is not active
+        - id: tenant
+          condition: 'nullableMatch(route.tenant_id, user.tenant_id)'
+          reason: tenant does not match
+        - id: user
+          condition: 'nullableMatch(route.user_id, user.id)'
+          reason: user does not match
+        - id: category
+          condition: 'nullableMatch(route.message_category, message.category)'
+          reason: message category does not match
+        - id: type
+          condition: 'nullableMatch(route.message_type, message.type)'
+          reason: message type does not match
+        - id: quality
+          condition: 'nullableMatch(route.delivery_quality, message.quality)'
+          reason: delivery quality does not match
+        - id: country
+          condition: 'nullableMatch(route.recipient_country, recipient.country)'
+          reason: recipient country does not match
+        - id: carrier
+          condition: 'nullableMatch(route.carrier_code, recipient.carrier)'
+          reason: carrier does not match
+        - id: message-count
+          condition: 'rangeMatch(route.min_message_count, route.max_message_count, message.count)'
+          reason: message count is outside route bounds
+        - id: pattern
+          condition: 'route.message_pattern == null or regex_match(message.body, route.message_pattern)'
+          reason: message body pattern does not match
+        - id: sender
+          condition: 'nullableMatch(route.sender_id, message.sender_id)'
+          reason: sender id does not match
+      score_rules:
+        - id: success-rate
+          metric: quality.success_rate
+          weight: 0.60
+          normalize: {min: 0.90, max: 1}
+          reason: higher delivery success rate improves score
+        - id: delivery-speed
+          metric: quality.avg_delivery_seconds
+          weight: 0.20
+          direction: lower_better
+          normalize: {min: 1, max: 15}
+          reason: faster delivery improves score
+        - id: failure-rate
+          metric: quality.failure_rate
+          weight: 0.10
+          direction: lower_better
+          normalize: {min: 0, max: 0.10}
+          reason: lower failure rate improves score
+        - id: cost
+          metric: quality.cost_per_sms
+          weight: 0.10
+          direction: lower_better
+          normalize: {min: 0.003, max: 0.03}
+          reason: lower cost improves score
+optimizations:
+  - name: sms-route-selection
+    decision: sms-route
+    ranking: sms-route
+    selection: best
+    goal: maximize SMS delivery quality while controlling latency, cost, and deterministic fallbacks
+tests:
+  - name: production SMS OTP chooses exact NCELL route
+    decision: sms-route
+    context:
+      user: {id: 15, tenant_id: 1001}
+      account: {daily_remaining: 10000, currency: NPR, segment: growth}
+      message: {category: otp, type: sms, quality: critical, count: 500, body: Your OTP is 123456, sender_id: ACME}
+      recipient: {number: "+9779800000000", country: NP, carrier: NCELL, opted_in: true}
+    expect:
+      effect: allow
+      rank: r-user-otp-np-ncell
+  - name: blocked country is denied
+    decision: sms-route
+    context:
+      user: {id: 15, tenant_id: 1001}
+      account: {daily_remaining: 10000, currency: NPR, segment: growth}
+      message: {category: otp, type: sms, quality: normal, count: 1, body: Hello, sender_id: ACME}
+      recipient: {number: "+989120000000", country: IR, carrier: MCI, opted_in: true}
+    expect:
+      effect: deny

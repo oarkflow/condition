@@ -1,0 +1,10 @@
+{
+  "package_name": "usecase-hr-procurement-legal",
+  "decision": "purchase-request",
+  "context": {
+    "budget": {"available": 300000},
+    "request": {"amount": 275000, "category": "software", "region": "US"},
+    "vendor": {"risk_score": 65}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

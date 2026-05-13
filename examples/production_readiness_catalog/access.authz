@@ -1,0 +1,12 @@
+tenant default "Default Tenant"
+
+policy manager-publish default allow package:publish * subject.roles@manager priority:100
+policy manager-list default allow package:list * subject.roles@manager priority:100
+policy manager-read default allow package:read * subject.roles@manager priority:100
+policy manager-evaluate default allow decision:evaluate * subject.roles@manager priority:100
+policy manager-simulate default allow package:simulate * subject.roles@manager priority:100
+policy manager-compare default allow package:compare * subject.roles@manager priority:100
+policy manager-test default allow package:test * subject.roles@manager priority:100
+policy manager-audit default allow audit:read * subject.roles@manager priority:100
+policy evaluator-route default allow decision:evaluate * subject.roles@evaluator priority:80
+policy auditor-read default allow audit:read * subject.roles@auditor priority:80

@@ -1,0 +1,36 @@
+{
+  "package_name": "prod-sms-provider-routing",
+  "version": "2026.05.12",
+  "environment": "prod",
+  "decision": "sms-route",
+  "context": {
+    "user": {
+      "id": 15,
+      "tenant_id": 1001
+    },
+    "account": {
+      "daily_remaining": 10000,
+      "currency": "NPR",
+      "segment": "growth"
+    },
+    "message": {
+      "id": "msg_20260512_001",
+      "category": "otp",
+      "type": "sms",
+      "quality": "critical",
+      "count": 500,
+      "body": "Your OTP is 123456",
+      "sender_id": "ACME"
+    },
+    "recipient": {
+      "number": "+9779800000000",
+      "country": "NP",
+      "carrier": "NCELL",
+      "opted_in": true
+    }
+  },
+  "options": {
+    "explain": true,
+    "include_failed": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "package_name": "usecase-banking-fintech",
+  "decision": "transaction",
+  "context": {
+    "customer": {"blacklisted": false, "country": "NP", "sanctions_match": false},
+    "transaction": {"amount": 125000},
+    "device": {"is_new": true}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

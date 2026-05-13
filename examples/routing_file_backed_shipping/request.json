@@ -1,0 +1,10 @@
+{
+  "package_name": "routing-file-backed-shipping",
+  "decision": "shipping-route",
+  "context": {
+    "merchant": {"id": "shop_77", "tier": "plus"},
+    "shipment": {"country": "US", "postal_code": "94105", "weight_kg": 3.2, "value": 899, "fragile": true, "hazmat": false, "max_delivery_days": 3}
+  },
+  "variables": {"maxCost": 18.00, "minOnTimeRate": 0.94},
+  "options": {"explain": true, "include_failed": true}
+}

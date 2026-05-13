@@ -1,0 +1,65 @@
+name: routing-file-backed-shipping
+version: "1"
+environment: demo
+datasets:
+  - name: shipping-carriers
+    records:
+      - id: ups-2day
+        name: UPS 2 Day
+        facts: {active: true, countries: [US, CA], handling: [fragile], blocked_postal_codes: [], max_weight_kg: 20, delivery_days: 2, on_time_rate: 0.971, cost: 16.80, capacity: 100, priority: 5, specificity: 3, fallback_order: 1, weight: 50}
+      - id: fedex-ground
+        name: FedEx Ground
+        facts: {active: true, countries: [US], handling: [fragile], blocked_postal_codes: [], max_weight_kg: 30, delivery_days: 3, on_time_rate: 0.955, cost: 9.40, capacity: 100, priority: 3, specificity: 2, fallback_order: 3, weight: 20}
+      - id: dhl-express
+        name: DHL Express
+        facts: {active: true, countries: [US, GB, NP], handling: [fragile], blocked_postal_codes: [], max_weight_kg: 10, delivery_days: 1, on_time_rate: 0.980, cost: 22.00, capacity: 80, priority: 4, specificity: 4, fallback_order: 2, weight: 20}
+      - id: local-blocked
+        name: Local Courier
+        facts: {active: true, countries: [US], handling: [fragile], blocked_postal_codes: ["94105"], max_weight_kg: 10, delivery_days: 1, on_time_rate: 0.990, cost: 8.00, capacity: 90, priority: 9, specificity: 2, fallback_order: 1, weight: 10}
+policies:
+  - name: shipping-route
+    default_effect: allow
+    rules:
+      - {id: hazmat-review, effect: require_review, condition: 'shipment.hazmat == true', reason: hazardous material requires review}
+      - {id: high-value-fragile, effect: require_review, condition: 'shipment.fragile == true and shipment.value > 1000', reason: high-value fragile shipment}
+rankings:
+  - name: shipping-route
+    decision: shipping-route
+    dataset: shipping-carriers
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.specificity
+    fallback_path: provider.fallback_order
+    cost_path: provider.cost
+    weight_path: provider.weight
+    hash_key_path: merchant.id
+    rule_set:
+      name: shipping-route
+      rules:
+        - {id: active, condition: 'provider.active == true', reason: carrier is disabled}
+        - {id: country, condition: 'shipment.country in provider.countries', reason: destination country is unsupported}
+        - {id: weight, condition: 'shipment.weight_kg <= provider.max_weight_kg', reason: package is too heavy}
+        - {id: sla, condition: 'provider.delivery_days <= shipment.max_delivery_days', reason: delivery SLA is too slow}
+        - {id: cost-cap, condition: 'provider.cost <= $maxCost', reason: shipping cost exceeds cap}
+        - {id: service-quality, condition: 'provider.on_time_rate >= $minOnTimeRate', reason: on-time rate is below threshold}
+        - id: handling
+          group:
+            mode: all
+            rules:
+              - {id: fragile, condition: 'shipment.fragile == false or "fragile" in provider.handling'}
+              - {id: hazmat, condition: 'shipment.hazmat == false or "hazmat" in provider.handling'}
+        - id: postal-block
+          group:
+            mode: none
+            rules:
+              - {id: blocked-postal, condition: 'shipment.postal_code in provider.blocked_postal_codes', reason: postal code is blocked}
+      score_rules:
+        - {id: on-time, metric: provider.on_time_rate, weight: 0.45, normalize: {min: 0.90, max: 1}}
+        - {id: speed, metric: provider.delivery_days, weight: 0.30, direction: lower_better, normalize: {min: 1, max: 5}}
+        - {id: cost, metric: provider.cost, weight: 0.25, direction: lower_better, normalize: {min: 5, max: 25}}
+optimizations:
+  - name: shipping-route-optimization
+    decision: shipping-route
+    ranking: shipping-route
+    selection: best
+    goal: choose the best carrier that meets service quality cost and delivery constraints

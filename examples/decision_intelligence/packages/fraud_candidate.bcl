@@ -1,0 +1,46 @@
+module "fraud-intelligence" {
+  version = "2"
+  environment = "production"
+
+  schema "fraud-review" {
+    required customer.blacklisted
+    required transaction.amount
+    required device.is_new
+    type transaction.amount number
+    type device.is_new bool
+  }
+
+  policy "fraud-review" {
+    default allow
+
+    deny "deny-blacklisted" when {
+      customer.blacklisted == true
+    } reason "customer is blacklisted"
+
+    require_review "review-high-risk-market" when {
+      customer.country == "NP"
+    } reason "manual review market"
+  }
+
+  rule_set "fraud-review" {
+    rule "1001" {
+      when { transaction.amount > 200000 }
+      then {
+        decision = "require_review"
+        score += 40
+        action notify { team = "compliance" }
+      }
+      reason "high value transaction"
+    }
+  }
+
+  workflow "fraud-review-workflow" {
+    start at "intake"
+    stage "intake" {
+      rule "2001" {
+        when { transaction.amount > 100000 }
+        then { decision = "escalate" }
+      }
+    }
+  }
+}

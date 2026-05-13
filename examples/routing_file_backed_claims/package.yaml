@@ -1,0 +1,47 @@
+name: usecase-insurance
+version: "1"
+environment: demo
+datasets:
+  - name: claims-teams
+    records:
+      - id: siu-auto
+        name: SIU Auto
+        facts: {active: true, lines: [auto], skills: [fraud, repair], priority: 10, capacity: 0.74, load: 0.48, fallback_order: 1}
+      - id: property-large-loss
+        name: Property Large Loss
+        facts: {active: true, lines: [property], skills: [large_loss, fraud], priority: 8, capacity: 0.62, load: 0.56, fallback_order: 2}
+      - id: standard-adjusters
+        name: Standard Adjusters
+        facts: {active: true, lines: [auto, property], skills: [standard], priority: 5, capacity: 0.90, load: 0.31, fallback_order: 3}
+policies:
+  - name: claim
+    default_effect: allow
+    rules:
+      - {id: inactive-policy, effect: deny, condition: 'policy.active == false', reason: policy is inactive}
+      - {id: high-prior-claims, effect: require_review, condition: 'claimant.prior_claims_12m >= 3', reason: claimant has recent claim velocity}
+      - {id: large-reserve, effect: escalate, condition: 'claim.reserve_amount > 250000', reason: large reserve requires senior review}
+rankings:
+  - name: claim-team
+    decision: claim
+    dataset: claims-teams
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.capacity
+    fallback_path: provider.fallback_order
+    cost_path: provider.load
+    rule_set:
+      name: claim-team
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: line, condition: 'claim.line in provider.lines'}
+        - {id: fraud-skill, condition: 'claim.fraud_score < 60 or "fraud" in provider.skills'}
+      score_rules:
+        - {id: capacity, metric: provider.capacity, weight: 0.40, normalize: {min: 0, max: 1}}
+        - {id: priority, metric: provider.priority, weight: 0.35, normalize: {min: 1, max: 10}}
+        - {id: load, metric: provider.load, weight: 0.25, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: claim-routing
+    decision: claim
+    ranking: claim-team
+    selection: best
+    goal: send claims to an eligible team with capacity and fraud expertise

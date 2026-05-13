@@ -1,0 +1,10 @@
+{
+  "package_name": "routing-file-backed-sms",
+  "decision": "sms-route",
+  "context": {
+    "user": {"id": 15, "tenant_id": 1001},
+    "message": {"category": "otp", "type": "sms", "quality": "critical", "count": 500, "body": "Your OTP is 123456", "sender_id": "ACME"},
+    "recipient": {"number": "+9779800000000", "country": "NP", "carrier": "NCELL", "opted_in": true}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

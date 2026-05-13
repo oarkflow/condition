@@ -1,0 +1,47 @@
+name: usecase-saas-product-platforms
+version: "1"
+environment: demo
+datasets:
+  - name: upgrade-offers
+    records:
+      - id: ai-workflows
+        name: AI Workflows
+        facts: {active: true, plans: [business, enterprise], regions: [US, CA, GB], priority: 9, expected_value: 0.82, cost: 0.30, fallback_order: 1}
+      - id: audit-pack
+        name: Audit Pack
+        facts: {active: true, plans: [enterprise], regions: [US, EU, GB], priority: 8, expected_value: 0.74, cost: 0.25, fallback_order: 2}
+      - id: support-plus
+        name: Support Plus
+        facts: {active: true, plans: [free, business], regions: [US, CA, GB, AU], priority: 6, expected_value: 0.68, cost: 0.20, fallback_order: 3}
+policies:
+  - name: feature-access
+    default_effect: deny
+    rules:
+      - {id: account-inactive, effect: deny, condition: 'account.status != "active"', reason: account is not active}
+      - {id: allow-list, effect: allow, condition: 'account.id in lists.allow_accounts', reason: account is explicitly allowed}
+      - {id: eligible-rollout, effect: allow, condition: 'account.plan in ["business", "enterprise"] and account.region in ["US", "CA", "GB"] and stableBucket(account.id, 100) < feature.rollout_percent', reason: account is eligible for rollout}
+rankings:
+  - name: upgrade-offer
+    decision: feature-access
+    dataset: upgrade-offers
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.expected_value
+    fallback_path: provider.fallback_order
+    cost_path: provider.cost
+    rule_set:
+      name: upgrade-offer
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: plan, condition: 'account.plan in provider.plans'}
+        - {id: region, condition: 'account.region in provider.regions'}
+      score_rules:
+        - {id: expected-value, metric: provider.expected_value, weight: 0.50, normalize: {min: 0, max: 1}}
+        - {id: priority, metric: provider.priority, weight: 0.30, normalize: {min: 1, max: 10}}
+        - {id: cost, metric: provider.cost, weight: 0.20, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: offer-selection
+    decision: feature-access
+    ranking: upgrade-offer
+    selection: best
+    goal: select the best eligible in-product offer for the tenant

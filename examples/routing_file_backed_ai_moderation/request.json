@@ -1,0 +1,9 @@
+{
+  "package_name": "usecase-ai-safety-guardrails",
+  "decision": "response",
+  "context": {
+    "ai": {"intent": "regulated_advice", "risk_label": "low_confidence", "confidence": 0.62, "risk_score": 55},
+    "tenant": {"policy_mode": "review"}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

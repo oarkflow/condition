@@ -1,0 +1,73 @@
+name: routing-file-backed-sms
+version: "1"
+environment: demo
+datasets:
+  - name: sms-routes
+    records:
+      - id: r-user-otp-np-ncell
+        name: Sparrow SMS
+        facts:
+          route: {status: active, user_id: 15, tenant_id: 1001, message_category: otp, message_type: sms, delivery_quality: critical, recipient_country: NP, carrier_code: NCELL, min_message_count: 1, max_message_count: 1000, message_pattern: OTP, sender_id: ACME, priority: 100, specificity: 12, fallback_order: 1, weight: 70}
+          provider: {id: 1, code: sparrow, status: active}
+          quality: {success_rate: 0.991, avg_delivery_seconds: 2.0, failure_rate: 0.004, cost_per_sms: 0.010}
+      - id: r-user-otp-np
+        name: Provider B
+        facts:
+          route: {status: active, user_id: 15, tenant_id: 1001, message_category: otp, message_type: sms, delivery_quality: critical, recipient_country: NP, carrier_code: null, min_message_count: 1, max_message_count: 2000, priority: 95, specificity: 9, fallback_order: 2, weight: 30}
+          provider: {id: 2, code: provider_b, status: active}
+          quality: {success_rate: 0.985, avg_delivery_seconds: 3.0, failure_rate: 0.006, cost_per_sms: 0.008}
+      - id: r-global-otp-np
+        name: Global OTP Provider
+        facts:
+          route: {status: active, user_id: null, tenant_id: null, message_category: otp, recipient_country: NP, priority: 70, specificity: 4, fallback_order: 4, weight: 10}
+          provider: {id: 4, code: global_otp, status: active}
+          quality: {success_rate: 0.982, avg_delivery_seconds: 4.0, failure_rate: 0.008, cost_per_sms: 0.006}
+      - id: r-inactive-provider
+        name: Inactive Provider
+        facts:
+          route: {status: active, user_id: 15, message_category: otp, recipient_country: NP, carrier_code: NCELL, priority: 999, specificity: 10, fallback_order: 1, weight: 1}
+          provider: {id: 6, code: inactive, status: inactive}
+          quality: {success_rate: 1.0, avg_delivery_seconds: 1.0, failure_rate: 0, cost_per_sms: 0.001}
+policies:
+  - name: sms-route
+    default_effect: allow
+    rules:
+      - {id: recipient-opt-in, effect: deny, condition: 'recipient.opted_in == false', reason: recipient has not opted in}
+      - {id: critical-otp, effect: require_review, condition: 'message.quality == "critical" and message.count > 1000', reason: high-volume critical OTP traffic}
+rankings:
+  - name: sms-route
+    decision: sms-route
+    dataset: sms-routes
+    selection: best
+    priority_path: route.priority
+    specificity_path: route.specificity
+    fallback_path: route.fallback_order
+    cost_path: quality.cost_per_sms
+    weight_path: route.weight
+    hash_key_path: recipient.number
+    rule_set:
+      name: sms-route
+      rules:
+        - {id: route-active, condition: 'active(route.status)', reason: route is not active}
+        - {id: provider-active, condition: 'active(provider.status)', reason: provider is not active}
+        - {id: tenant, condition: 'nullableMatch(route.tenant_id, user.tenant_id)', reason: tenant does not match}
+        - {id: user, condition: 'nullableMatch(route.user_id, user.id)', reason: user does not match}
+        - {id: category, condition: 'nullableMatch(route.message_category, message.category)', reason: message category does not match}
+        - {id: type, condition: 'nullableMatch(route.message_type, message.type)', reason: message type does not match}
+        - {id: quality, condition: 'nullableMatch(route.delivery_quality, message.quality)', reason: delivery quality does not match}
+        - {id: country, condition: 'nullableMatch(route.recipient_country, recipient.country)', reason: recipient country does not match}
+        - {id: carrier, condition: 'nullableMatch(route.carrier_code, recipient.carrier)', reason: carrier does not match}
+        - {id: message-count, condition: 'rangeMatch(route.min_message_count, route.max_message_count, message.count)', reason: message count is outside route bounds}
+        - {id: pattern, condition: 'route.message_pattern == null or regex_match(message.body, route.message_pattern)', reason: message body pattern does not match}
+        - {id: sender, condition: 'nullableMatch(route.sender_id, message.sender_id)', reason: sender id does not match}
+      score_rules:
+        - {id: success-rate, metric: quality.success_rate, weight: 0.60, normalize: {min: 0.90, max: 1}, reason: higher delivery success rate improves score}
+        - {id: delivery-speed, metric: quality.avg_delivery_seconds, weight: 0.20, direction: lower_better, normalize: {min: 1, max: 15}, reason: faster delivery improves score}
+        - {id: failure-rate, metric: quality.failure_rate, weight: 0.10, direction: lower_better, normalize: {min: 0, max: 0.10}, reason: lower failure rate improves score}
+        - {id: cost, metric: quality.cost_per_sms, weight: 0.10, direction: lower_better, normalize: {min: 0.003, max: 0.03}, reason: lower cost improves score}
+optimizations:
+  - name: sms-route-optimization
+    decision: sms-route
+    ranking: sms-route
+    selection: best
+    goal: maximize delivery quality while preserving deterministic fallbacks

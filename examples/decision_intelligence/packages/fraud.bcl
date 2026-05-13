@@ -1,0 +1,123 @@
+module "fraud-intelligence" {
+  version = "1"
+  environment = "production"
+
+  metadata {
+    positioning = "decision intelligence platform"
+    algorithm = "evidence graph ledger + policy effect lattice"
+  }
+
+  schema "fraud-review" {
+    required customer.blacklisted
+    required transaction.amount
+    required device.is_new
+    type transaction.amount number
+    type device.is_new bool
+  }
+
+  policy "fraud-review" {
+    default allow
+
+    deny "deny-blacklisted" when {
+      customer.blacklisted == true
+    } reason "customer is blacklisted"
+
+    require_review "review-high-risk-market" when {
+      customer.country == "NP"
+    } reason "manual review market"
+  }
+
+  rule_set "fraud-review" {
+    rule "1001" {
+      when { transaction.amount > 100000 }
+      then {
+        decision = "require_review"
+        score += 40
+        action notify { team = "compliance" }
+      }
+      reason "high value transaction"
+    }
+
+    rule "1002" {
+      when { transaction.velocity_10m > 5 }
+      then { score += 30 }
+      reason "velocity threshold exceeded"
+    }
+
+    rule "1003" {
+      when { device.is_new == true }
+      then { score += 15 }
+      reason "new device"
+    }
+  }
+
+  ranking "fraud-review" {
+    selection best
+    priority_path = "provider.priority"
+    specificity_path = "provider.sla"
+    cost_path = "provider.load"
+
+    rule "active" { when { provider.active == true } }
+    rule "skill" { when { "payments" in provider.skills } }
+
+    score "priority" {
+      metric = "provider.priority"
+      weight = 0.7
+      normalize 1 10
+    }
+
+    score "load" {
+      metric = "provider.load"
+      weight = 0.3
+      direction = "lower_better"
+      normalize 0 1
+    }
+  }
+
+  optimize "queue-optimization" {
+    decision = "fraud-review"
+    goal = "maximize reviewer readiness while minimizing queue load"
+    ranking = "fraud-review"
+    selection best
+  }
+
+  workflow "fraud-review-workflow" {
+    start at "intake"
+
+    stage "intake" {
+      rule "2001" {
+        when { transaction.amount > 100000 }
+        then { decision = "escalate" }
+        reason "high value case escalated to senior reviewer"
+      }
+    }
+  }
+
+  action "notify" {
+    description = "Send an operational notification"
+  }
+
+  action "escalate" {
+    description = "Move the case to a senior review path"
+  }
+
+  governance {
+    owner = "risk"
+    maker = "risk-ops"
+    checkers = ["compliance"]
+    approvers = ["head-of-risk"]
+  }
+
+  test "blacklisted customers are denied" {
+    decision = "fraud-review"
+    input {
+      customer.blacklisted = true
+      customer.country = "NP"
+      transaction.amount = 1000
+      device.is_new = false
+    }
+    expect {
+      effect = "deny"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+name: usecase-banking-fintech
+version: "1"
+environment: demo
+datasets:
+  - name: review-queues
+    records:
+      - id: aml
+        name: AML Review
+        facts: {active: true, skills: [payments, aml], priority: 10, sla_hours: 1, load: 0.42, fallback_order: 1}
+      - id: card-risk
+        name: Card Risk
+        facts: {active: true, skills: [cards, payments], priority: 8, sla_hours: 2, load: 0.35, fallback_order: 2}
+      - id: standard-review
+        name: Standard Review
+        facts: {active: true, skills: [payments], priority: 5, sla_hours: 4, load: 0.20, fallback_order: 3}
+policies:
+  - name: transaction
+    default_effect: allow
+    rules:
+      - {id: blacklisted, effect: deny, condition: 'customer.blacklisted == true', reason: customer is blacklisted}
+      - {id: high-risk-market, effect: require_review, condition: 'customer.country in ["NP", "IR"]', reason: manual review market}
+      - {id: sanctions-hit, effect: escalate, condition: 'customer.sanctions_match == true', reason: sanctions match requires escalation}
+rule_sets:
+  - name: transaction
+    rules:
+      - id: high-value-new-device
+        condition: 'transaction.amount > 100000 and device.is_new == true'
+        decision: require_review
+        score: 50
+        reason: high value transaction from new device
+        actions:
+          - type: notify
+            payload: {team: compliance}
+rankings:
+  - name: review-queue
+    decision: transaction
+    dataset: review-queues
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.sla_hours
+    fallback_path: provider.fallback_order
+    cost_path: provider.load
+    rule_set:
+      name: review-queue
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: skill, condition: '"payments" in provider.skills'}
+      score_rules:
+        - {id: priority, metric: provider.priority, weight: 0.50, normalize: {min: 1, max: 10}}
+        - {id: sla, metric: provider.sla_hours, weight: 0.20, direction: lower_better, normalize: {min: 1, max: 8}}
+        - {id: load, metric: provider.load, weight: 0.30, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: fraud-review-routing
+    decision: transaction
+    ranking: review-queue
+    selection: best
+    goal: route risky payments to the most qualified available queue

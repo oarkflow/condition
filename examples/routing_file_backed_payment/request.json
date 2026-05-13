@@ -1,0 +1,11 @@
+{
+  "package_name": "routing-file-backed-payment",
+  "decision": "payment-route",
+  "context": {
+    "merchant": {"id": "m_100", "mcc": "5732", "risk_tier": "standard"},
+    "payment": {"amount": 249.90, "currency": "USD", "country": "US", "card_brand": "visa", "requires_3ds": false, "risk_score": 0.18},
+    "customer": {"id": "cus_42", "trusted": true}
+  },
+  "variables": {"maxRiskScore": 0.55, "maxFeeBps": 290},
+  "options": {"explain": true, "include_failed": true}
+}

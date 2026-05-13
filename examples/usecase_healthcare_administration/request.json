@@ -1,0 +1,9 @@
+{
+  "package_name": "usecase-healthcare-administration",
+  "decision": "prior-auth",
+  "context": {
+    "request": {"payer": "acme-health", "documentation_complete": false, "privacy_sensitive": true},
+    "coverage": {"active": true}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

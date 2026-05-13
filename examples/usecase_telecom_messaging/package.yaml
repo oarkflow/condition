@@ -1,0 +1,47 @@
+name: usecase-telecom-messaging
+version: "1"
+environment: demo
+datasets:
+  - name: sms-providers
+    records:
+      - id: primary
+        name: Primary Route
+        facts: {active: true, countries: [US, NP], sender_types: [transactional], priority: 10, cost: 0.70, quality: 0.98, latency_ms: 180, fallback_order: 1}
+      - id: backup
+        name: Backup Route
+        facts: {active: true, countries: [US, NP, GB], sender_types: [transactional, marketing], priority: 7, cost: 0.50, quality: 0.91, latency_ms: 260, fallback_order: 2}
+      - id: compliance-route
+        name: Compliance Route
+        facts: {active: true, countries: [NP], sender_types: [transactional], priority: 8, cost: 0.90, quality: 0.95, latency_ms: 220, fallback_order: 3}
+policies:
+  - name: campaign
+    default_effect: allow
+    rules:
+      - {id: no-opt-in, effect: deny, condition: 'recipient.opted_in == false', reason: recipient has not opted in}
+      - {id: quiet-hours, effect: require_review, condition: 'campaign.local_hour < 8 or campaign.local_hour > 20', reason: campaign falls outside normal sending hours}
+      - {id: blocked-country, effect: deny, condition: 'recipient.country in ["IR", "KP"]', reason: country is blocked for this campaign}
+rankings:
+  - name: sms
+    decision: campaign
+    dataset: sms-providers
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.latency_ms
+    fallback_path: provider.fallback_order
+    cost_path: provider.cost
+    rule_set:
+      name: sms
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: country, condition: 'recipient.country in provider.countries'}
+        - {id: sender-type, condition: 'campaign.sender_type in provider.sender_types'}
+      score_rules:
+        - {id: quality, metric: provider.quality, weight: 0.50, normalize: {min: 0, max: 1}}
+        - {id: latency, metric: provider.latency_ms, weight: 0.20, direction: lower_better, normalize: {min: 100, max: 1000}}
+        - {id: cost, metric: provider.cost, weight: 0.30, direction: lower_better, normalize: {min: 0.1, max: 1.5}}
+optimizations:
+  - name: sms-provider-selection
+    decision: campaign
+    ranking: sms
+    selection: best
+    goal: maximize delivery quality while minimizing route cost

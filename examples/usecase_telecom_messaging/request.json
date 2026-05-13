@@ -1,0 +1,9 @@
+{
+  "package_name": "usecase-telecom-messaging",
+  "decision": "campaign",
+  "context": {
+    "recipient": {"country": "NP", "opted_in": true},
+    "campaign": {"sender_type": "transactional", "local_hour": 21}
+  },
+  "options": {"explain": true, "include_failed": true}
+}

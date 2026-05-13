@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decision-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: decision-server
+  template:
+    metadata:
+      labels:
+        app: decision-server
+    spec:
+      containers:
+        - name: server
+          image: decision-server:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ADDR
+              value: ":8080"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /v1/packages
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: decision-server
+spec:
+  selector:
+    app: decision-server
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

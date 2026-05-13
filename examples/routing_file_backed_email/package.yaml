@@ -1,0 +1,63 @@
+name: routing-file-backed-email
+version: "1"
+environment: demo
+datasets:
+  - name: email-providers
+    records:
+      - id: ses-us-east
+        name: AWS SES us-east
+        facts: {active: true, regions: [us-east, us-west], message_types: [transactional, marketing], blocked_domains: [], deliverability: 0.992, latency_ms: 180, cost_per_email: 0.00010, capacity: 100, priority: 4, specificity: 4, fallback_order: 1, weight: 60}
+      - id: sendgrid-global
+        name: SendGrid Global
+        facts: {active: true, regions: [us-east, eu-west, ap-south], message_types: [transactional, marketing], blocked_domains: [blocked.example], deliverability: 0.989, latency_ms: 260, cost_per_email: 0.00018, capacity: 95, priority: 3, specificity: 5, fallback_order: 2, weight: 30}
+      - id: mailgun-eu
+        name: Mailgun EU
+        facts: {active: true, regions: [eu-west], message_types: [transactional], blocked_domains: [], deliverability: 0.985, latency_ms: 340, cost_per_email: 0.00016, capacity: 80, priority: 3, specificity: 2, fallback_order: 3, weight: 10}
+      - id: postmark-txn
+        name: Postmark Transactional
+        facts: {active: false, regions: [us-east], message_types: [transactional], blocked_domains: [], deliverability: 0.998, latency_ms: 140, cost_per_email: 0.00035, capacity: 100, priority: 6, specificity: 2, fallback_order: 1, weight: 10}
+policies:
+  - name: email-route
+    default_effect: allow
+    rules:
+      - {id: recipient-suppressed, effect: deny, condition: 'recipient.suppressed == true', reason: recipient is suppressed}
+      - {id: campaign-complaints, effect: require_review, condition: 'campaign.complaint_rate > $maxComplaintRate', reason: campaign complaint rate is high}
+rankings:
+  - name: email-route
+    decision: email-route
+    dataset: email-providers
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.specificity
+    fallback_path: provider.fallback_order
+    cost_path: provider.cost_per_email
+    weight_path: provider.weight
+    hash_key_path: recipient.email
+    rule_set:
+      name: email-route
+      rules:
+        - {id: provider-active, condition: 'provider.active == true', reason: provider is disabled}
+        - {id: not-suppressed, condition: 'recipient.suppressed == false', reason: recipient is suppressed}
+        - {id: region, condition: 'recipient.region in provider.regions', reason: recipient region is unsupported}
+        - {id: message-type, condition: 'message.type in provider.message_types', reason: message type is unsupported}
+        - id: domain-block
+          group:
+            mode: none
+            rules:
+              - {id: blocked-domain, condition: 'recipient.domain in provider.blocked_domains', reason: recipient domain is blocked}
+        - id: campaign-health
+          group:
+            mode: all
+            rules:
+              - {id: complaints, condition: 'campaign.complaint_rate <= $maxComplaintRate'}
+              - {id: latency, condition: 'provider.latency_ms <= $maxLatencyMS'}
+      score_rules:
+        - {id: deliverability, metric: provider.deliverability, weight: 0.55, normalize: {min: 0.95, max: 1}}
+        - {id: latency, metric: provider.latency_ms, weight: 0.25, direction: lower_better, normalize: {min: 100, max: 1000}}
+        - {id: cost, metric: provider.cost_per_email, weight: 0.20, direction: lower_better, normalize: {min: 0.00005, max: 0.00040}}
+optimizations:
+  - name: email-route-optimization
+    decision: email-route
+    ranking: email-route
+    selection: best
+    goal: choose a healthy email provider by deliverability latency and cost

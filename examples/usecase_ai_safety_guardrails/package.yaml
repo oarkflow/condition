@@ -1,0 +1,46 @@
+name: usecase-ai-safety-guardrails
+version: "1"
+environment: demo
+datasets:
+  - name: moderation-queues
+    records:
+      - id: security-review
+        name: Security Review
+        facts: {active: true, risks: [credential_extraction, malware, data_exfiltration], priority: 10, sla_minutes: 15, load: 0.62, fallback_order: 1}
+      - id: policy-review
+        name: Policy Review
+        facts: {active: true, risks: [regulated_advice, low_confidence], priority: 8, sla_minutes: 30, load: 0.40, fallback_order: 2}
+      - id: tenant-review
+        name: Tenant Review
+        facts: {active: true, risks: [tenant_policy], priority: 7, sla_minutes: 45, load: 0.35, fallback_order: 3}
+policies:
+  - name: response
+    default_effect: allow
+    rules:
+      - {id: credential-extraction, effect: deny, condition: 'ai.intent == "credential_extraction"', reason: credential extraction is blocked}
+      - {id: low-confidence, effect: require_review, condition: 'ai.confidence < 0.75 and ai.risk_score >= 40', reason: low confidence high risk response}
+      - {id: tenant-policy, effect: require_review, condition: 'tenant.policy_mode == "review"', reason: tenant policy requires review}
+rankings:
+  - name: moderation-queue
+    decision: response
+    dataset: moderation-queues
+    selection: best
+    priority_path: provider.priority
+    specificity_path: provider.sla_minutes
+    fallback_path: provider.fallback_order
+    cost_path: provider.load
+    rule_set:
+      name: moderation-queue
+      rules:
+        - {id: active, condition: 'provider.active == true'}
+        - {id: risk-fit, condition: 'ai.intent in provider.risks or ai.risk_label in provider.risks'}
+      score_rules:
+        - {id: priority, metric: provider.priority, weight: 0.45, normalize: {min: 1, max: 10}}
+        - {id: sla, metric: provider.sla_minutes, weight: 0.30, direction: lower_better, normalize: {min: 5, max: 120}}
+        - {id: load, metric: provider.load, weight: 0.25, direction: lower_better, normalize: {min: 0, max: 1}}
+optimizations:
+  - name: moderation-routing
+    decision: response
+    ranking: moderation-queue
+    selection: best
+    goal: route risky AI interactions to the most appropriate moderation queue
